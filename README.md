@@ -1,136 +1,103 @@
-# 小象的博客
+# Waline on Worker · 单文件版
 
-> 记录，思考，分享。
+> 一个文件跑起来的 Waline 评论服务端 —— 部署在 Cloudflare Workers，数据存于 D1。
 
-一个基于 [Hexo](https://hexo.io/) 搭建的个人博客，使用 [Butterfly](https://github.com/jerryc127/hexo-theme-butterfly) 主题，并集成 [elog](https://github.com/LetTTGao/elo) 实现多平台写作与同步。
+这是 [Waline on Worker](https://github.com/wuyilingwei/Waline_On_Worker) 的**单文件打包版**：整个后端（路由、评论、浏览量、用户、管理面板、D1 建表）全部浓缩在一个 `worker.js` 里，复制粘贴即可部署，无需 `npm install`、无需构建。
 
-在线站点：<https://blog.smallelephant.de5.net>
+项目架构与配套文件组织参考自我的 [小象部署 host](https://github.com/devxiaoxiang/host) 项目。
 
-## 目录
+## 功能特性
 
-- [特性](#特性)
-- [技术栈](#技术栈)
-- [快速开始](#快速开始)
-- [常用命令](#常用命令)
-- [配置说明](#配置说明)
-- [目录结构](#目录结构)
-- [许可证](#许可证)
+- **单文件**：一个 `worker.js` 包含全部逻辑，开箱即用
+- **免运维**：运行在 Cloudflare 边缘网络，免费额度足够个人博客使用
+- **自动建表**：首次请求自动初始化 D1 数据表，无需手动执行 SQL
+- **完整兼容**：兼容 `@waline/client` 前端与 `@waline/admin` 管理面板
+- **功能齐全**：评论增删改查、楼中楼、点赞置顶、浏览量/表情反应、Markdown + XSS 防护、Gravatar 头像、UA 解析、RSS、注册登录、JWT 鉴权、数据导入导出、反垃圾（Akismet / LLM）等
+- **管理后台**：内置 `/ui` 管理面板与 `/ui/worker-setting` 设置页
 
-## 特性
+## 部署步骤
 
-- **Hexo 8 + Butterfly 主题**：功能丰富、高度可定制，支持深色模式、PWA、文章搜索、评论系统、字数统计等。
-- **多平台写作**：通过 elog 支持从语雀（Token / 账号密码）、Notion、FlowUs 同步文章到本地。
-- **多图床支持**：可配置腾讯云 COS、阿里云 OSS、七牛云、又拍云、GitHub 等作为图床。
-- **自动化脚本**：内置 `hexo.sh` 交互式菜单，一键完成本地预览、构建、部署、升级与提交。
-- **SEO 友好**：内置 sitemap、百度 sitemap、RSS、结构化数据等生成器。
+### 1. 创建 D1 数据库
 
-## 技术栈
-
-| 类别 | 依赖 |
-| --- | --- |
-| 静态站点框架 | Hexo 8.1.2 |
-| 主题 | hexo-theme-butterfly |
-| Markdown 渲染 | hexo-renderer-markdown-it |
-| 模板引擎 | hexo-renderer-pug / hexo-renderer-stylus |
-| 文章同步 | @elog/cli 0.14.7 |
-| 其他 | hexo-generator-sitemap / feed / wordcount 等 |
-
-完整依赖见 [`package.json`](./package.json)。
-
-## 快速开始
-
-### 环境要求
-
-- Node.js 18 及以上
-- npm 或 pnpm
-
-### 本地运行
+在 Cloudflare 控制台进入 **Workers & Pages → D1**，创建一个数据库（例如 `waline-db`），记下它的 **Database ID**。
 
 ```bash
-# 安装依赖
-npm install
-
-# 启动本地预览，默认 http://localhost:4000
-npm run server
-
-# 清理缓存并生成静态文件到 public/
-npm run clean && npm run build
+wrangler d1 create waline-db
 ```
 
-生成静态文件后，可将 `public/` 目录部署到 GitHub Pages、Vercel、Netlify、腾讯云 COS 等任意静态托管服务。
+### 2. 创建 Worker 并绑定 D1
 
-## 常用命令
+在 Cloudflare 控制台创建一个新的 Worker，进入 **Settings → Variables and Bindings → D1 Database Bindings**：
 
-> 也可直接运行交互式脚本 `./hexo.sh`，通过菜单完成下列操作。
+- 变量名（Binding）填写 `DB`（**必须与代码一致**）
+- 选择上一步创建的 D1 数据库
 
-| 命令 | 说明 |
-| --- | --- |
-| `npm run server` | 启动本地预览服务 |
-| `npm run build` | 生成静态站点文件 |
-| `npm run clean` | 清理缓存 |
-| `npm run deploy` | 部署（需在 `_config.yml` 中配置 `deploy`） |
-| `npm run sync:yuque-token` | 使用 Token 从语雀同步文章 |
-| `npm run sync:yuque-pwd` | 使用账号密码从语雀同步文章 |
-| `npm run sync:notion` | 从 Notion 同步文章 |
-| `npm run sync:flowus` | 从 FlowUs 同步文章 |
+### 3. 设置密钥
 
-## 配置说明
+在 Worker 的 **Settings → Variables and Secrets** 添加环境变量：
 
-### 站点配置
+| 变量 | 是否必填 | 说明 |
+| --- | --- | --- |
+| `JWT_SECRET` | **必填** | 登录鉴权密钥，建议 32 位以上随机字符串 |
+| `SITE_URL` | 选填 | 你的博客地址，用于反垃圾与头像代理 |
+| `SECURE_DOMAINS` | 选填 | 允许的跨域来源，多个用英文逗号分隔 |
+| `AKISMET_KEY` | 选填 | Akismet 反垃圾密钥 |
+| `AUDIT` | 选填 | 设为 `true` 则匿名评论需审核 |
 
-- `_config.yml`：Hexo 站点全局配置（标题、副标题、URL、分页、Markdown 渲染等）。
-- `_config.butterfly.yml`：Butterfly 主题配置（导航、头像、评论、统计、搜索、PWA 等）。
-
-### 文章同步（elog）
-
-`elog/` 目录包含语雀、Notion、FlowUs 等平台的同步配置。所有密钥均通过**环境变量**读取，例如：
+命令行方式：
 
 ```bash
-# 语雀（Token 方式）
-YUQUE_TOKEN=xxx
-YUQUE_LOGIN=xxx
-YUQUE_REPO=xxx
-
-# 图床密钥（以腾讯云 COS 为例）
-COS_SECRET_ID=xxx
-COS_SECRET_KEY=xxx
-COS_IMAGE_BUCKET=xxx
-COS_IMAGE_REGION=xxx
-COS_HOST=xxx
+wrangler secret put JWT_SECRET
 ```
 
-> **安全提示**：请勿将任何密钥、Token 直接写入仓库文件。本地调试可将环境变量写入 `elog/.elog.env`（该文件已被忽略），生产环境请使用 CI/CD Secrets 注入。
+### 4. 粘贴代码并部署
 
-### 评论、统计等服务
+进入 Worker 的 **Edit Code** 页面，将本仓库 [`worker.js`](./worker.js) 的完整内容粘贴进去，点击 **Save and Deploy**。
 
-第三方服务的 Token、ID 等同样建议在部署平台的 Secret 中配置，并在 `_config.butterfly.yml` 中以 `${{ secrets.XXX }}` 形式引用。
+> 也可以 clone 本仓库后，用 `wrangler deploy` 部署（配置见 [`wrangler.toml`](./wrangler.toml)，记得替换其中的 `database_id`）。
+
+### 5. 初始化管理员
+
+访问 `https://你的-worker域名/ui`，**第一个注册的账号会自动成为超级管理员**。注册后建议立即关闭公开注册。
+
+## 前端接入
+
+在你的博客页面引入 `@waline/client`，`serverURL` 填你的 Worker 地址：
+
+```html
+<link rel="stylesheet" href="https://unpkg.com/@waline/client@v3/dist/waline.css" />
+<div id="waline"></div>
+<script type="module">
+  import { init } from 'https://unpkg.com/@waline/client@v3/dist/waline.js';
+  init({
+    el: '#waline',
+    serverURL: 'https://你的-worker域名',
+  });
+</script>
+```
+
+## 自托管前端版本
+
+管理后台可在 `/ui/worker-setting` 里在线切换 `@waline/client` 与 `@waline/admin` 的 CDN 版本、评论默认状态、反垃圾策略等，设置保存在 D1 的 `wl_Settings` 表中。环境变量优先级高于面板设置。
 
 ## 目录结构
 
 ```text
 .
-├── _config.yml             # Hexo 站点配置
-├── _config.butterfly.yml   # Butterfly 主题配置
-├── elog/                   # elog 多平台同步配置
-├── scaffolds/              # 文章模板
-├── scripts/                # Hexo 扩展脚本
-├── source/                 # 站点源码
-│   ├── _posts/             # 文章 Markdown
-│   ├── about/              # 关于页面
-│   ├── categories/         # 分类页
-│   ├── tags/               # 标签页
-│   └── images/             # 图片资源
-├── themes/butterfly/       # Butterfly 主题
-├── hexo.sh                 # 交互式管理脚本
-└── package.json            # 依赖与脚本
+├── worker.js       # 单文件服务端（全部逻辑 + 自动建表）
+├── wrangler.toml   # Wrangler 部署配置（D1 绑定示例）
+└── README.md       # 本说明
 ```
+
+## 特别致谢
+
+本项目使用的单文件服务端程序源自开源项目 **[Waline on Worker](https://github.com/wuyilingwei/Waline_On_Worker)**，在此向开发者团队致以诚挚感谢：
+
+- **wuyilingwei（Siyu Lei）** —— Waline on Worker 作者，[作者博客](https://blog.wuyilingwei.com)
+- **[Waline](https://waline.js.org)** 官方及其所有贡献者 —— 提供了优秀的评论系统
+
+正是他们的开源贡献，让 Waline 得以完整运行在 Cloudflare Workers 之上。本项目仅做单文件整理与配套文档，核心代码的著作权归原作者所有。
 
 ## 许可证
 
-本项目采用 [Apache License 2.0](./LICENSE) 开源，可自由使用、修改与分发，惟需遵守许可证中的条款。
-
-Butterfly 主题按其自身许可证授权，详见 [`themes/butterfly/LICENSE`](./themes/butterfly/LICENSE)。
-
----
-
-Copyright © 小象
+本项目文档与配置采用 [Apache License 2.0](./LICENSE)。`worker.js` 的知识产权归 Waline on Worker 原作者所有，请遵守其上游项目的许可证。

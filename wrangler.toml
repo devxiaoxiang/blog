@@ -1,0 +1,25 @@
+# Waline on Worker 单文件版 —— Wrangler 部署配置
+# 用法：把 database_id 换成你自己的 D1 数据库 ID，然后执行 wrangler deploy
+#
+# 参考：https://developers.cloudflare.com/workers/wrangler/configuration/
+
+name = "waline-on-worker"
+main = "worker.js"
+compatibility_date = "2025-05-20"
+compatibility_flags = ["nodejs_compat"]
+
+# D1 数据库绑定 —— 变量名必须与 worker.js 中的 DB 一致
+[[d1_databases]]
+binding = "DB"
+database_name = "waline-db"
+database_id = "替换为你的 D1 数据库 ID"
+
+# 公开变量（按需修改）。敏感信息请用 `wrangler secret put` 设置，勿写在这里。
+[vars]
+SITE_NAME = "小象的博客"
+SITE_URL = "https://blog.smallelephant.de5.net"
+# SECURE_DOMAINS = "blog.smallelephant.de5.net"
+# AUDIT = "false"
+
+# 必填密钥示例（请改用命令行，避免明文入库）：
+#   wrangler secret put JWT_SECRET
