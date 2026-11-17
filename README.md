@@ -2,7 +2,7 @@
 
 > 记录，思考，分享。
 
-一个基于 [Hexo](https://hexo.io/) 搭建的个人博客，使用 [Butterfly](https://github.com/jerryc127/hexo-theme-butterfly) 主题，并集成 [elog](https://github.com/LetTTGao/elo) 实现多平台写作与同步。
+一个基于 [Hexo](https://hexo.io/) 搭建的个人博客，使用 [Butterfly](https://github.com/jerryc127/hexo-theme-butterfly) 主题，并集成 [elog](https://github.com/LetTTGao/elog) 实现多平台写作与同步。
 
 在线站点：<https://blog.smallelephant.de5.net>
 
