@@ -4,7 +4,6 @@
 
 这是 [Waline on Worker](https://github.com/wuyilingwei/Waline_On_Worker) 的**单文件打包版**：整个后端（路由、评论、浏览量、用户、管理面板、D1 建表）全部浓缩在一个 `worker.js` 里，复制粘贴即可部署，无需 `npm install`、无需构建。
 
-项目架构与配套文件组织参考自我的 [小象部署 host](https://github.com/devxiaoxiang/host) 项目。
 
 ## 功能特性
 
