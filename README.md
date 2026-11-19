@@ -4,7 +4,7 @@
 
 一个基于 [Hexo](https://hexo.io/) 搭建的个人博客，使用 [Butterfly](https://github.com/jerryc127/hexo-theme-butterfly) 主题，并集成 elog 实现多平台写作与同步。
 
-- 在线站点：<https://blog.smallelephant.de5.net>
+- 老站点（本站的域名配置）：<https://blog.smallelephant.de5.net>
 - 新站点：<https://blog.xiaoxiang.autos>
 - 自建 Waline 评论系统：请参考 [waline-on-worker 分支](https://github.com/devxiaoxiang/blog/tree/waline-on-worker)
 
