@@ -6,7 +6,7 @@ author: 小象
 language: zh-CN
 timezone: Asia/Shanghai
 
-url: https://blog.smallelephant.de5.net
+url: https://blog.xiaoxiang.autos
 permalink: :year/:month/:day/:title/
 permalink_defaults:
 pretty_urls:

@@ -386,7 +386,7 @@ valine:
   visitor: false
   option:
 waline:
-  serverURL: https://blogpl.smallelephant.de5.net # Waline 后端地址（Cloudflare Worker）
+  serverURL: https://blogpl.xiaoxiang.autos # Waline 后端地址（Cloudflare Worker）
   bg:
   pageview: false
   meta_css: true
